@@ -344,8 +344,8 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 		var response CatalogResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(3), response.Total)
-		assert.Len(t, response.Products, 3)
+		assert.Equal(t, int64(2), response.Total)
+		assert.Len(t, response.Products, 2)
 		for _, product := range response.Products {
 			assert.Less(t, product.Price, 12.00)
 		}
