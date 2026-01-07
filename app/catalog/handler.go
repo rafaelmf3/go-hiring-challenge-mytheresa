@@ -1,26 +1,27 @@
 package catalog
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 )
 
 type Response struct {
-	Products []Product `json:"products"`
+	Products []ProductResponse `json:"products"`
 }
 
-type Product struct {
-	Code  string  `json:"code"`
-	Price float64 `json:"price"`
+type ProductResponse struct {
+	Code     string  `json:"code"`
+	Price    float64 `json:"price"`
+	Category *string `json:"category,omitempty"`
 }
 
 type CatalogHandler struct {
-	repo *models.ProductsRepository
+	repo models.ProductsRepositoryInterface
 }
 
-func NewCatalogHandler(r *models.ProductsRepository) *CatalogHandler {
+func NewCatalogHandler(r models.ProductsRepositoryInterface) *CatalogHandler {
 	return &CatalogHandler{
 		repo: r,
 	}
@@ -34,23 +35,22 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Map response
-	products := make([]Product, len(res))
+	products := make([]ProductResponse, len(res))
 	for i, p := range res {
-		products[i] = Product{
-			Code:  p.Code,
-			Price: p.Price.InexactFloat64(),
+		var categoryName *string
+		if p.Category != nil {
+			categoryName = &p.Category.Name
+		}
+		products[i] = ProductResponse{
+			Code:     p.Code,
+			Price:    p.Price.InexactFloat64(),
+			Category: categoryName,
 		}
 	}
-
-	// Return the products as a JSON response
-	w.Header().Set("Content-Type", "application/json")
 
 	response := Response{
 		Products: products,
 	}
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	api.OKResponse(w, response)
 }
