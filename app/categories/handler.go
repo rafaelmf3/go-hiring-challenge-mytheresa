@@ -1,6 +1,7 @@
 package categories
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/mytheresa/go-hiring-challenge/app/api"
@@ -9,6 +10,11 @@ import (
 
 type CategoryResponse struct {
 	ID   uint   `json:"id"`
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type CreateCategoryRequest struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
 }
@@ -40,4 +46,35 @@ func (h *CategoriesHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api.OKResponse(w, responses)
+}
+
+func (h *CategoriesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
+	var req CreateCategoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Code == "" || req.Name == "" {
+		api.ErrorResponse(w, http.StatusBadRequest, "code and name are required")
+		return
+	}
+
+	category := &models.Category{
+		Code: req.Code,
+		Name: req.Name,
+	}
+
+	if err := h.categories.CreateCategory(category); err != nil {
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response := CategoryResponse{
+		ID:   category.ID,
+		Code: category.Code,
+		Name: category.Name,
+	}
+
+	api.OKResponse(w, response)
 }

@@ -6,6 +6,7 @@ import (
 
 type CategoriesRepositoryInterface interface {
 	GetAllCategories() ([]Category, error)
+	CreateCategory(category *Category) error
 }
 
 type categoriesRepository struct {
@@ -24,4 +25,8 @@ func (r *categoriesRepository) GetAllCategories() ([]Category, error) {
 		return nil, err
 	}
 	return categories, nil
+}
+
+func (r *categoriesRepository) CreateCategory(category *Category) error {
+	return r.db.Create(category).Error
 }

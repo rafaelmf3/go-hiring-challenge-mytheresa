@@ -1,6 +1,7 @@
 package categories
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,12 +12,24 @@ import (
 )
 
 type mockCategoriesRepository struct {
-	categories []models.Category
-	getAllErr  error
+	categories      []models.Category
+	getAllErr       error
+	createErr       error
+	createdCategory *models.Category
 }
 
 func (m *mockCategoriesRepository) GetAllCategories() ([]models.Category, error) {
 	return m.categories, m.getAllErr
+}
+
+func (m *mockCategoriesRepository) CreateCategory(category *models.Category) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	if m.createdCategory != nil {
+		category.ID = m.createdCategory.ID
+	}
+	return nil
 }
 
 func TestCategoriesHandler_HandleGet(t *testing.T) {
@@ -90,6 +103,107 @@ func TestCategoriesHandler_HandleGet(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		handler.HandleGet(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func TestCategoriesHandler_HandlePost(t *testing.T) {
+	t.Run("successful creation", func(t *testing.T) {
+		mockRepo := &mockCategoriesRepository{
+			createdCategory: &models.Category{
+				ID:   1,
+				Code: "ELECTRONICS",
+				Name: "Electronics",
+			},
+		}
+
+		handler := NewCategoriesHandler(mockRepo)
+
+		reqBody := CreateCategoryRequest{
+			Code: "ELECTRONICS",
+			Name: "Electronics",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/categories", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.HandlePost(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var response CategoryResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, "ELECTRONICS", response.Code)
+		assert.Equal(t, "Electronics", response.Name)
+	})
+
+	t.Run("missing code field", func(t *testing.T) {
+		mockRepo := &mockCategoriesRepository{}
+		handler := NewCategoriesHandler(mockRepo)
+
+		reqBody := CreateCategoryRequest{
+			Name: "Electronics",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/categories", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.HandlePost(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("missing name field", func(t *testing.T) {
+		mockRepo := &mockCategoriesRepository{}
+		handler := NewCategoriesHandler(mockRepo)
+
+		reqBody := CreateCategoryRequest{
+			Code: "ELECTRONICS",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/categories", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.HandlePost(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("invalid JSON body", func(t *testing.T) {
+		mockRepo := &mockCategoriesRepository{}
+		handler := NewCategoriesHandler(mockRepo)
+
+		req := httptest.NewRequest("POST", "/categories", bytes.NewBufferString("invalid json"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.HandlePost(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockRepo := &mockCategoriesRepository{
+			createErr: assert.AnError,
+		}
+		handler := NewCategoriesHandler(mockRepo)
+
+		reqBody := CreateCategoryRequest{
+			Code: "ELECTRONICS",
+			Name: "Electronics",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/categories", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.HandlePost(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
