@@ -9,7 +9,7 @@ import (
 type ProductsRepositoryInterface interface {
 	GetAllProducts() ([]Product, error)
 	GetProductByCode(code string) (*Product, error)
-	GetProducts(offset, limit int) ([]Product, int64, error)
+	GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error)
 }
 
 type productsRepository struct {
@@ -43,11 +43,20 @@ func (r *productsRepository) GetProductByCode(code string) (*Product, error) {
 	return &product, nil
 }
 
-func (r *productsRepository) GetProducts(offset, limit int) ([]Product, int64, error) {
+func (r *productsRepository) GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error) {
 	var products []Product
 	var total int64
 
 	query := r.db.Model(&Product{})
+
+	if categoryCode != nil && *categoryCode != "" {
+		query = query.Joins("JOIN categories ON products.category_id = categories.id").
+			Where("categories.code = ?", *categoryCode)
+	}
+
+	if priceLessThan != nil {
+		query = query.Where("price < ?", *priceLessThan)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

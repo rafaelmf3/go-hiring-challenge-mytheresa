@@ -70,20 +70,32 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	res, total, err := h.productsRepository.GetProducts(offset, limit)
+	var categoryCode *string
+	if cat := r.URL.Query().Get("category"); cat != "" {
+		categoryCode = &cat
+	}
+
+	var priceLessThan *float64
+	if priceStr := r.URL.Query().Get("price_less_than"); priceStr != "" {
+		if parsed, err := strconv.ParseFloat(priceStr, 64); err == nil && parsed > 0 {
+			priceLessThan = &parsed
+		}
+	}
+
+	products, total, err := h.productsRepository.GetProductsWithFilters(offset, limit, categoryCode, priceLessThan)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Map response
-	products := make([]ProductResponse, len(res))
-	for i, p := range res {
+	productsResponse := make([]ProductResponse, len(products))
+	for i, p := range products {
 		var categoryName *string
 		if p.Category != nil {
 			categoryName = &p.Category.Name
 		}
-		products[i] = ProductResponse{
+		productsResponse[i] = ProductResponse{
 			Code:     p.Code,
 			Price:    p.Price.InexactFloat64(),
 			Category: categoryName,
@@ -91,7 +103,7 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := CatalogResponse{
-		Products: products,
+		Products: productsResponse,
 		Total:    total,
 	}
 
