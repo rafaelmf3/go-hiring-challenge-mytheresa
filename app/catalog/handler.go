@@ -3,14 +3,21 @@ package catalog
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 	"gorm.io/gorm"
 )
 
+const (
+	defaultOffset = 0
+	defaultLimit  = 10
+)
+
 type CatalogResponse struct {
 	Products []ProductResponse `json:"products"`
+	Total    int64             `json:"total"`
 }
 
 type ProductResponse struct {
@@ -43,7 +50,27 @@ func NewCatalogHandler(r models.ProductsRepositoryInterface) *CatalogHandler {
 }
 
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
-	res, err := h.productsRepository.GetAllProducts()
+	offset := defaultOffset
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	limit := defaultLimit
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil {
+			if parsed < 1 {
+				limit = 1
+			} else if parsed > 100 {
+				limit = 100
+			} else {
+				limit = parsed
+			}
+		}
+	}
+
+	res, total, err := h.productsRepository.GetProducts(offset, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -65,6 +92,7 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 	response := CatalogResponse{
 		Products: products,
+		Total:    total,
 	}
 
 	api.OKResponse(w, response)

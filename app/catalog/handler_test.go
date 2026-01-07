@@ -14,6 +14,7 @@ import (
 
 type mockProductsRepository struct {
 	products      []models.Product
+	total         int64
 	getAllErr     error
 	getByCodeErr  error
 	getByCodeProd *models.Product
@@ -28,6 +29,10 @@ func (m *mockProductsRepository) GetProductByCode(code string) (*models.Product,
 		return nil, m.getByCodeErr
 	}
 	return m.getByCodeProd, nil
+}
+
+func (m *mockProductsRepository) GetProducts(offset, limit int) ([]models.Product, int64, error) {
+	return m.products, m.total, nil
 }
 
 func TestCatalogHandler_HandleGet(t *testing.T) {
