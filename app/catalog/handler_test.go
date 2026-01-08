@@ -462,7 +462,7 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 		assert.Len(t, response.Products, 5)
 	})
 
-	t.Run("limit validation - minimum", func(t *testing.T) {
+	t.Run("limit validation - minimum (clamped)", func(t *testing.T) {
 		mockRepo := &mockProductsRepository{
 			products: allProducts,
 			total:    int64(len(allProducts)),
@@ -482,7 +482,7 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 		assert.Len(t, response.Products, 1)
 	})
 
-	t.Run("limit validation - maximum", func(t *testing.T) {
+	t.Run("limit validation - maximum (clamped)", func(t *testing.T) {
 		largeProductList := make([]models.Product, 150)
 		for i := range largeProductList {
 			largeProductList[i] = models.Product{
@@ -511,7 +511,7 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 		assert.Len(t, response.Products, 100)
 	})
 
-	t.Run("invalid offset parameter", func(t *testing.T) {
+	t.Run("invalid offset parameter - returns bad request", func(t *testing.T) {
 		mockRepo := &mockProductsRepository{
 			products: allProducts,
 			total:    int64(len(allProducts)),
@@ -523,15 +523,55 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 
 		handler.HandleGet(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 
-		var response CatalogResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 		assert.NoError(t, err)
-		assert.Len(t, response.Products, 5)
+		assert.Contains(t, errorResponse["error"], "offset must be a valid integer")
 	})
 
-	t.Run("invalid price_less_than parameter", func(t *testing.T) {
+	t.Run("negative offset parameter - returns bad request", func(t *testing.T) {
+		mockRepo := &mockProductsRepository{
+			products: allProducts,
+			total:    int64(len(allProducts)),
+		}
+
+		handler := NewCatalogHandler(mockRepo)
+		req := httptest.NewRequest("GET", "/catalog?offset=-1", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleGet(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
+		assert.NoError(t, err)
+		assert.Contains(t, errorResponse["error"], "offset must be non-negative")
+	})
+
+	t.Run("invalid limit parameter - returns bad request", func(t *testing.T) {
+		mockRepo := &mockProductsRepository{
+			products: allProducts,
+			total:    int64(len(allProducts)),
+		}
+
+		handler := NewCatalogHandler(mockRepo)
+		req := httptest.NewRequest("GET", "/catalog?limit=invalid", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleGet(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
+		assert.NoError(t, err)
+		assert.Contains(t, errorResponse["error"], "limit must be a valid integer")
+	})
+
+	t.Run("invalid price_less_than parameter - returns bad request", func(t *testing.T) {
 		mockRepo := &mockProductsRepository{
 			products: allProducts,
 			total:    int64(len(allProducts)),
@@ -543,15 +583,15 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 
 		handler.HandleGet(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 
-		var response CatalogResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(5), response.Total)
+		assert.Contains(t, errorResponse["error"], "price_less_than must be a valid number")
 	})
 
-	t.Run("negative price_less_than parameter", func(t *testing.T) {
+	t.Run("negative price_less_than parameter - returns bad request", func(t *testing.T) {
 		mockRepo := &mockProductsRepository{
 			products: allProducts,
 			total:    int64(len(allProducts)),
@@ -563,12 +603,32 @@ func TestCatalogHandler_HandleGet_GetProductsWithFilters(t *testing.T) {
 
 		handler.HandleGet(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 
-		var response CatalogResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(5), response.Total)
+		assert.Contains(t, errorResponse["error"], "price_less_than must be greater than 0")
+	})
+
+	t.Run("zero price_less_than parameter - returns bad request", func(t *testing.T) {
+		mockRepo := &mockProductsRepository{
+			products: allProducts,
+			total:    int64(len(allProducts)),
+		}
+
+		handler := NewCatalogHandler(mockRepo)
+		req := httptest.NewRequest("GET", "/catalog?price_less_than=0", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleGet(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var errorResponse map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
+		assert.NoError(t, err)
+		assert.Contains(t, errorResponse["error"], "price_less_than must be greater than 0")
 	})
 
 	t.Run("repository error handling", func(t *testing.T) {

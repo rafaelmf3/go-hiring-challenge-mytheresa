@@ -13,6 +13,8 @@ import (
 const (
 	defaultOffset = 0
 	defaultLimit  = 10
+	minLimit      = 1
+	maxLimit      = 100
 )
 
 type CatalogResponse struct {
@@ -52,24 +54,16 @@ func NewCatalogHandler(r models.ProductsRepositoryInterface) *CatalogHandler {
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	offset := defaultOffset
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
-			offset = parsed
-		}
+	offset, err := parseOffset(r.URL.Query().Get("offset"))
+	if err != nil {
+		api.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	limit := defaultLimit
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil {
-			if parsed < 1 {
-				limit = 1
-			} else if parsed > 100 {
-				limit = 100
-			} else {
-				limit = parsed
-			}
-		}
+	limit, err := parseLimit(r.URL.Query().Get("limit"))
+	if err != nil {
+		api.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var categoryCode *string
@@ -77,11 +71,10 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		categoryCode = &cat
 	}
 
-	var priceLessThan *float64
-	if priceStr := r.URL.Query().Get("price_less_than"); priceStr != "" {
-		if parsed, err := strconv.ParseFloat(priceStr, 64); err == nil && parsed > 0 {
-			priceLessThan = &parsed
-		}
+	priceLessThan, err := parsePriceLessThan(r.URL.Query().Get("price_less_than"))
+	if err != nil {
+		api.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	products, total, err := h.productsRepository.GetProductsWithFilters(ctx, offset, limit, categoryCode, priceLessThan)
@@ -90,7 +83,6 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Map response
 	productsResponse := make([]ProductResponse, len(products))
 	for i, p := range products {
 		var categoryName *string
@@ -157,4 +149,52 @@ func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request)
 	}
 
 	api.OKResponse(w, response)
+}
+
+func parseOffset(query string) (int, error) {
+	if query == "" {
+		return defaultOffset, nil
+	}
+
+	parsed, err := strconv.Atoi(query)
+	if err != nil {
+		return 0, errors.New("offset must be a valid integer")
+	}
+
+	if parsed < 0 {
+		return 0, errors.New("offset must be non-negative")
+	}
+
+	return parsed, nil
+}
+
+func parseLimit(query string) (int, error) {
+	if query == "" {
+		return defaultLimit, nil
+	}
+
+	parsed, err := strconv.Atoi(query)
+	if err != nil {
+		return 0, errors.New("limit must be a valid integer")
+	}
+
+	limit := max(minLimit, min(parsed, maxLimit))
+	return limit, nil
+}
+
+func parsePriceLessThan(query string) (*float64, error) {
+	if query == "" {
+		return nil, nil
+	}
+
+	parsed, err := strconv.ParseFloat(query, 64)
+	if err != nil {
+		return nil, errors.New("price_less_than must be a valid number")
+	}
+
+	if parsed <= 0 {
+		return nil, errors.New("price_less_than must be greater than 0")
+	}
+
+	return &parsed, nil
 }
