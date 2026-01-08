@@ -30,7 +30,8 @@ func NewCategoriesHandler(r models.CategoriesRepositoryInterface) *CategoriesHan
 }
 
 func (h *CategoriesHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.categories.GetAllCategories()
+	ctx := r.Context()
+	categories, err := h.categories.GetAllCategories(ctx)
 	if err != nil {
 		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -49,6 +50,7 @@ func (h *CategoriesHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CategoriesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req CreateCategoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		api.ErrorResponse(w, http.StatusBadRequest, "invalid request body")
@@ -65,7 +67,7 @@ func (h *CategoriesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		Name: req.Name,
 	}
 
-	if err := h.categories.CreateCategory(category); err != nil {
+	if err := h.categories.CreateCategory(ctx, category); err != nil {
 		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}

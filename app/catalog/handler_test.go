@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -26,14 +27,14 @@ func (m *mockProductsRepository) GetAllProducts() ([]models.Product, error) {
 	return m.products, m.getAllErr
 }
 
-func (m *mockProductsRepository) GetProductByCode(code string) (*models.Product, error) {
+func (m *mockProductsRepository) GetProductByCode(_ context.Context, code string) (*models.Product, error) {
 	if m.getByCodeErr != nil {
 		return nil, m.getByCodeErr
 	}
 	return m.getByCodeProd, nil
 }
 
-func (m *mockProductsRepository) GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]models.Product, int64, error) {
+func (m *mockProductsRepository) GetProductsWithFilters(_ context.Context, offset, limit int, categoryCode *string, priceLessThan *float64) ([]models.Product, int64, error) {
 	if m.getAllErr != nil {
 		return nil, 0, m.getAllErr
 	}

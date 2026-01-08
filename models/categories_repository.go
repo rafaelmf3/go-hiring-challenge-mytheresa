@@ -1,12 +1,14 @@
 package models
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 )
 
 type CategoriesRepositoryInterface interface {
-	GetAllCategories() ([]Category, error)
-	CreateCategory(category *Category) error
+	GetAllCategories(ctx context.Context) ([]Category, error)
+	CreateCategory(ctx context.Context, category *Category) error
 }
 
 type categoriesRepository struct {
@@ -20,15 +22,15 @@ func NewCategoriesRepository(db *gorm.DB) CategoriesRepositoryInterface {
 }
 
 // GetAllCategories retrieves all categories from the database
-func (r *categoriesRepository) GetAllCategories() ([]Category, error) {
+func (r *categoriesRepository) GetAllCategories(ctx context.Context) ([]Category, error) {
 	var categories []Category
-	if err := r.db.Find(&categories).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&categories).Error; err != nil {
 		return nil, err
 	}
 	return categories, nil
 }
 
 // CreateCategory creates a new category in the database
-func (r *categoriesRepository) CreateCategory(category *Category) error {
-	return r.db.Create(category).Error
+func (r *categoriesRepository) CreateCategory(ctx context.Context, category *Category) error {
+	return r.db.WithContext(ctx).Create(category).Error
 }

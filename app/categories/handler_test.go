@@ -2,6 +2,7 @@ package categories
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,11 +19,11 @@ type mockCategoriesRepository struct {
 	createdCategory *models.Category
 }
 
-func (m *mockCategoriesRepository) GetAllCategories() ([]models.Category, error) {
+func (m *mockCategoriesRepository) GetAllCategories(_ context.Context) ([]models.Category, error) {
 	return m.categories, m.getAllErr
 }
 
-func (m *mockCategoriesRepository) CreateCategory(category *models.Category) error {
+func (m *mockCategoriesRepository) CreateCategory(_ context.Context, category *models.Category) error {
 	if m.createErr != nil {
 		return m.createErr
 	}

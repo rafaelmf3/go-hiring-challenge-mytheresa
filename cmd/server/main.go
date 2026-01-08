@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/mytheresa/go-hiring-challenge/app/catalog"
@@ -48,10 +49,12 @@ func main() {
 	mux.HandleFunc("GET /categories", categoriesHandler.HandleGet)
 	mux.HandleFunc("POST /categories", categoriesHandler.HandlePost)
 
+	handler := timeoutMiddleware(30 * time.Second)(mux)
+
 	// Set up the HTTP server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("localhost:%s", os.Getenv("HTTP_PORT")),
-		Handler: mux,
+		Handler: handler,
 	}
 
 	// Start the server
@@ -68,4 +71,15 @@ func main() {
 	log.Println("Shutting down server...")
 	srv.Shutdown(ctx)
 	stop()
+}
+
+func timeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
 }

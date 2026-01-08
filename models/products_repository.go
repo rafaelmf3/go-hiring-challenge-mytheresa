@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"errors"
 
 	"gorm.io/gorm"
@@ -9,8 +10,8 @@ import (
 type ProductsRepositoryInterface interface {
 	// Deprecated: use GetProductsWithFilters instead
 	GetAllProducts() ([]Product, error)
-	GetProductByCode(code string) (*Product, error)
-	GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error)
+	GetProductByCode(ctx context.Context, code string) (*Product, error)
+	GetProductsWithFilters(ctx context.Context, offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error)
 }
 
 type productsRepository struct {
@@ -33,9 +34,9 @@ func (r *productsRepository) GetAllProducts() ([]Product, error) {
 }
 
 // GetProductByCode retrieves a product by its code along with its variants and category
-func (r *productsRepository) GetProductByCode(code string) (*Product, error) {
+func (r *productsRepository) GetProductByCode(ctx context.Context, code string) (*Product, error) {
 	var product Product
-	if err := r.db.Preload("Variants").Preload("Category").
+	if err := r.db.WithContext(ctx).Preload("Variants").Preload("Category").
 		Where("code = ?", code).
 		First(&product).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -47,11 +48,11 @@ func (r *productsRepository) GetProductByCode(code string) (*Product, error) {
 }
 
 // GetProductsWithFilters retrieves products with optional filters for category code and price less than a specified value, along with pagination
-func (r *productsRepository) GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error) {
+func (r *productsRepository) GetProductsWithFilters(ctx context.Context, offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error) {
 	var products []Product
 	var total int64
 
-	query := r.db.Model(&Product{})
+	query := r.db.WithContext(ctx).Model(&Product{})
 
 	if categoryCode != nil && *categoryCode != "" {
 		query = query.Joins("JOIN categories ON products.category_id = categories.id").

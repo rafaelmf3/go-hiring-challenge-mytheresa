@@ -50,6 +50,8 @@ func NewCatalogHandler(r models.ProductsRepositoryInterface) *CatalogHandler {
 }
 
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	offset := defaultOffset
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
 		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
@@ -82,7 +84,7 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	products, total, err := h.productsRepository.GetProductsWithFilters(offset, limit, categoryCode, priceLessThan)
+	products, total, err := h.productsRepository.GetProductsWithFilters(ctx, offset, limit, categoryCode, priceLessThan)
 	if err != nil {
 		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -111,13 +113,15 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	code := r.PathValue("code")
 	if code == "" {
 		api.ErrorResponse(w, http.StatusBadRequest, "product code is required")
 		return
 	}
 
-	product, err := h.productsRepository.GetProductByCode(code)
+	product, err := h.productsRepository.GetProductByCode(ctx, code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			api.ErrorResponse(w, http.StatusNotFound, "product not found")
