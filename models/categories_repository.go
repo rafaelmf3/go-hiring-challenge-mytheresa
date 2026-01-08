@@ -19,6 +19,7 @@ func NewCategoriesRepository(db *gorm.DB) CategoriesRepositoryInterface {
 	}
 }
 
+// GetAllCategories retrieves all categories from the database
 func (r *categoriesRepository) GetAllCategories() ([]Category, error) {
 	var categories []Category
 	if err := r.db.Find(&categories).Error; err != nil {
@@ -27,6 +28,7 @@ func (r *categoriesRepository) GetAllCategories() ([]Category, error) {
 	return categories, nil
 }
 
+// CreateCategory creates a new category in the database
 func (r *categoriesRepository) CreateCategory(category *Category) error {
 	return r.db.Create(category).Error
 }

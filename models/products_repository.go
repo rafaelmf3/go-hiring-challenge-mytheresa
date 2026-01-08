@@ -7,6 +7,7 @@ import (
 )
 
 type ProductsRepositoryInterface interface {
+	// Deprecated: use GetProductsWithFilters instead
 	GetAllProducts() ([]Product, error)
 	GetProductByCode(code string) (*Product, error)
 	GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error)
@@ -22,6 +23,7 @@ func NewProductsRepository(db *gorm.DB) ProductsRepositoryInterface {
 	}
 }
 
+// Deprecated: use GetProductsWithFilters instead
 func (r *productsRepository) GetAllProducts() ([]Product, error) {
 	var products []Product
 	if err := r.db.Preload("Variants").Preload("Category").Find(&products).Error; err != nil {
@@ -30,6 +32,7 @@ func (r *productsRepository) GetAllProducts() ([]Product, error) {
 	return products, nil
 }
 
+// GetProductByCode retrieves a product by its code along with its variants and category
 func (r *productsRepository) GetProductByCode(code string) (*Product, error) {
 	var product Product
 	if err := r.db.Preload("Variants").Preload("Category").
@@ -43,6 +46,7 @@ func (r *productsRepository) GetProductByCode(code string) (*Product, error) {
 	return &product, nil
 }
 
+// GetProductsWithFilters retrieves products with optional filters for category code and price less than a specified value, along with pagination
 func (r *productsRepository) GetProductsWithFilters(offset, limit int, categoryCode *string, priceLessThan *float64) ([]Product, int64, error) {
 	var products []Product
 	var total int64
